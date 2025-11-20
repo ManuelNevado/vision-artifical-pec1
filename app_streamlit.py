@@ -41,14 +41,23 @@ def manual_threshold(image, threshold, mode=cv.THRESH_BINARY):
     
     Args:
         image: Imagen en formato OpenCV (numpy.ndarray)
-        threshold: Valor del umbral (0-255)
+        threshold: Valor del umbral (0-255), ignorado si mode incluye OTSU
         mode: Modo de umbralización (cv.THRESH_BINARY, cv.THRESH_BINARY_INV, etc.)
     
     Returns:
-        numpy.ndarray: Imagen umbralizada
+        tuple: (imagen umbralizada, valor de umbral usado)
     """
-    _, thresholded_image = cv.threshold(image, threshold, 255, mode)
-    return thresholded_image
+    # Otsu requiere imagen en escala de grises (1 canal)
+    if mode & cv.THRESH_OTSU:
+        if len(image.shape) == 3:
+            gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+        else:
+            gray = image
+        threshold_used, thresholded_image = cv.threshold(gray, threshold, 255, mode)
+    else:
+        threshold_used, thresholded_image = cv.threshold(image, threshold, 255, mode)
+    
+    return thresholded_image, threshold_used
 
 
 def histograma(image):
@@ -544,8 +553,8 @@ def main():
             
             if use_median:
                 st.sidebar.subheader("Parámetros Filtro Mediana")
-                median_kernel = st.sidebar.slider("Tamaño del kernel", 3, 15, 5, step=2,
-                                                 help="Efectivo para ruido sal y pimienta")
+                median_kernel = st.sidebar.slider("Tamaño del kernel", 3, 9, 3, step=2,
+                                                 help="Efectivo para ruido sal y pimienta. Valores pequeños = más sutil")
             else:
                 median_kernel = None
             
@@ -604,6 +613,7 @@ def main():
                     "Truncado": cv.THRESH_TRUNC,
                     "A Cero": cv.THRESH_TOZERO,
                     "A Cero Invertido": cv.THRESH_TOZERO_INV,
+                    "Otsu (Automático)": cv.THRESH_BINARY + cv.THRESH_OTSU
                 }
                 
                 threshold_method_name = st.sidebar.selectbox(
@@ -614,7 +624,12 @@ def main():
                 )
                 threshold_mode = threshold_methods[threshold_method_name]
                 
-                threshold_value = st.sidebar.slider("Valor del umbral", 0, 255, 127)
+                # Solo mostrar slider si no es Otsu (Otsu calcula el umbral automáticamente)
+                if "Otsu" in threshold_method_name:
+                    threshold_value = 0  # Ignorado por Otsu
+                    st.sidebar.info("Otsu calcula el umbral óptimo automáticamente")
+                else:
+                    threshold_value = st.sidebar.slider("Valor del umbral", 0, 255, 127)
             else:
                 threshold_value = None
                 threshold_mode = cv.THRESH_BINARY
@@ -733,8 +748,15 @@ def main():
                         
                         elif operation == "threshold" and threshold_value is not None:
                             st.markdown(f"**Paso {paso_num}: Umbralización Manual**")
-                            working_image = manual_threshold(working_image, threshold_value, threshold_mode)
-                            st.image(cv_to_pil(working_image), caption=f"Umbralización aplicada ({threshold_method_name}, valor={threshold_value})", width=max_width)
+                            working_image, actual_threshold = manual_threshold(working_image, threshold_value, threshold_mode)
+                            
+                            # Mostrar umbral usado (importante para Otsu que lo calcula automáticamente)
+                            if "Otsu" in threshold_method_name:
+                                caption = f"Umbralización aplicada ({threshold_method_name}, umbral calculado={actual_threshold:.0f})"
+                            else:
+                                caption = f"Umbralización aplicada ({threshold_method_name}, valor={threshold_value})"
+                            
+                            st.image(cv_to_pil(working_image), caption=caption, width=max_width)
                             results.append("Umbralización")
                             st.markdown("---")
                         

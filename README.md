@@ -41,12 +41,13 @@ La aplicación incluye las siguientes operaciones de procesamiento de imágenes:
 6.  **Umbralización Manual**
     -   Convierte imagen según diferentes métodos de umbralización
     -   Valor de umbral ajustable (0-255)
-    -   5 métodos disponibles:
+    -   6 métodos disponibles:
         - **Binary**: Píxeles > umbral → 255, píxeles ≤ umbral → 0
         - **Binary Invertido**: Píxeles > umbral → 0, píxeles ≤ umbral → 255
         - **Truncado**: Píxeles > umbral → valor umbral, píxeles ≤ umbral → mantiene valor
         - **A Cero**: Píxeles > umbral → mantiene valor, píxeles ≤ umbral → 0
         - **A Cero Invertido**: Píxeles > umbral → 0, píxeles ≤ umbral → mantiene valor
+        - **Otsu (Automático)**: Calcula el umbral óptimo automáticamente
     -   Útil para segmentación y binarización
 
 7.  **Dilatación**
