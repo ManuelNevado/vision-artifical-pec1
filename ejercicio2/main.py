@@ -1,6 +1,9 @@
 import cv2 as cv
 import numpy as np
 import os
+import math
+
+
 banner = r"""
   _______                   __                                _                         _ _                  _           
  |__   __|                 / _|                              (_)                       | (_)                | |          
@@ -75,11 +78,13 @@ def parte_a():
     cv.destroyAllWindows()
 
 
-def parte_b():
+def parte_b1():
     """
     T1: Reescalar a un cuarto en ambos ejes la imagen
     T2: Inclinar (shear) -30 grados la imagen obtenida de T1
     T3: girar 90 grados a la izquierda la imagen obtenida de T2
+
+    Se muestra la imagen despues de cada transformacion
     """
     img1 = cv.imread("zigzag.jpg")
     if img1 is None:
@@ -89,7 +94,14 @@ def parte_b():
     h, w = img1.shape[:2]
     
     # --- T1: Reescalado ---
-    img1 = cv.resize(img1, (w//4, h//4))
+    M_resize = np.float32([
+        [1/4, 0, 0],
+        [0, 1/4, 0]
+    ])
+    img1 = cv.warpAffine(img1, M_resize, (w//4, h//4))
+    cv.imshow("img1 T1", img1)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
     
     # --- T2: Shear -30 grados ---
     rows, cols = img1.shape[:2]
@@ -113,6 +125,10 @@ def parte_b():
     # APLICAR UNA SOLA VEZ
     img_sheared = cv.warpAffine(img1, M_shear, (new_width, rows))
 
+    cv.imshow("img1 T2", img_sheared)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
+
     # --- T3: Rotación 90 grados ---
     h_s, w_s = img_sheared.shape[:2]
     (cX, cY) = (w_s // 2, h_s // 2)
@@ -130,11 +146,100 @@ def parte_b():
     
     img_final = cv.warpAffine(img_sheared, M_rot, (nW, nH))
     
-    cv.imshow("Resultado Final Parte B", img_final)
+    cv.imshow("img1 T3", img_final)
     cv.waitKey(0)
     cv.destroyAllWindows()
     
+def parte_b2():
+    # Se aplican todas las transformaciones de B1.1 de una sola vez conmutando matrices de transformacion
+    img1 = cv.imread("zigzag.jpg")
+    if img1 is None:
+        print("Error: Image not found")
+        return
+    
+    # Para multiplicar matrices de transformacion afin, necesitamos usar coordenadas homogeneas (3x3)
+    # Añadimos la fila [0, 0, 1] a cada matriz
+    
+    M_resize_3x3 = np.eye(3)
+    M_resize_3x3[:2] = np.float32([
+        [1/4, 0, 0],
+        [0, 1/4, 0]
+    ])
+    
+    M_shear_3x3 = np.eye(3)
+    M_shear_3x3[:2] = np.float32([
+        [1, np.tan(np.radians(-30)), 0],
+        [0, 1, 0]
+    ])
+    
+    M_rot_3x3 = np.eye(3)
+    M_rot_3x3[:2] = np.float32([
+        [math.cos(math.radians(90)), math.sin(math.radians(90)), 0],
+        [-math.sin(math.radians(90)), math.cos(math.radians(90)), 0]
+    ])
+    
+    # Multiplicacion de matrices (orden inverso: T3 * T2 * T1)
+    M_T_3x3 = np.dot(M_rot_3x3, np.dot(M_shear_3x3, M_resize_3x3))
+    
+    # --- Calculo del Bounding Box y Ajuste de Traslacion ---
+    h, w = img1.shape[:2]
+    
+    # Definir las 4 esquinas de la imagen original (coordenadas homogeneas)
+    corners = np.array([
+        [0, 0, 1],
+        [w, 0, 1],
+        [w, h, 1],
+        [0, h, 1]
+    ]).T # Transponer para que sean vectores columna (3x4)
+    
+    # Aplicar la transformacion a las esquinas
+    transformed_corners = np.dot(M_T_3x3, corners)
+    
+    # Normalizar (aunque la ultima fila deberia ser 1, es buena practica)
+    transformed_corners = transformed_corners[:2, :]
+    
+    # Encontrar los limites (min/max x, min/max y)
+    min_x = transformed_corners[0, :].min()
+    max_x = transformed_corners[0, :].max()
+    min_y = transformed_corners[1, :].min()
+    max_y = transformed_corners[1, :].max()
+    
+    # Calcular el desplazamiento necesario para que empiece en (0,0)
+    translation_x = -min_x
+    translation_y = -min_y
+    
+    # Añadir la traslacion a la matriz combinada
+    M_T_3x3[0, 2] += translation_x
+    M_T_3x3[1, 2] += translation_y
+    
+    # Calcular el nuevo tamaño del canvas
+    new_w = int(np.ceil(max_x - min_x))
+    new_h = int(np.ceil(max_y - min_y))
+    
+    # Extraemos la matriz 2x3 resultante para warpAffine
+    M_T = M_T_3x3[:2]
+    
+    img_final = cv.warpAffine(img1, M_T, (new_w, new_h))
+    
+    cv.imshow("img1 Tc", img_final)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
+        
+    
 
+def parte_b():
+    #Menu parte B
+    print("Parte B")
+    print("1. B1.1")
+    print("2. B1.2")
+    print("3. Salir")
+    option = int(input("Introduce una opcion: "))
+    while option != 3:
+        if option == 1:
+            parte_b1()
+        elif option == 2:
+            parte_b2()
+        option = int(input("Introduce una opcion: "))
 
 def parte_c():
     print("Parte C")
