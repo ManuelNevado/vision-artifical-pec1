@@ -52,3 +52,47 @@ Finalmente, aplicamos `warpAffine` especificando el **nuevo tamaño** `(nW, nH)`
 ```python
 return cv.warpAffine(image, M, (nW, nH))
 ```
+
+# Explicación de la Transformación Shear (Cizallamiento)
+
+En la **Parte B**, realizamos una transformación de inclinación (shear) horizontal de -30 grados.
+
+## El Desafío
+El cizallamiento desplaza los píxeles horizontalmente en función de su altura.
+*   Un ángulo negativo (`-30°`) desplaza los píxeles hacia la izquierda.
+*   Como el origen `(0,0)` está arriba a la izquierda, los píxeles desplazados hacia coordenadas negativas desaparecerían (se saldrían de la imagen).
+
+## La Solución
+Para evitar perder información y deformaciones incorrectas, seguimos estos pasos:
+
+### 1. Matriz de Shear
+La matriz básica para shear en X es:
+$$
+\begin{bmatrix} 1 & sh_x & 0 \\ 0 & 1 & 0 \end{bmatrix}
+$$
+Donde $sh_x = \tan(-30^\circ)$.
+
+### 2. Cálculo del Desplazamiento y Nuevo Ancho
+Dado que el desplazamiento es hacia la izquierda, calculamos cuánto se moverá el píxel más bajo (la altura total `h`).
+```python
+abs_shift = abs(h * shx)
+```
+Este valor `abs_shift` es:
+1.  La cantidad que debemos **trasladar** la imagen hacia la derecha para compensar el movimiento a la izquierda.
+2.  La cantidad de **ancho extra** que debemos añadir al lienzo.
+
+### 3. Matriz Ajustada
+Modificamos la matriz para incluir la traslación en el componente `[0, 2]`:
+```python
+M_shear = np.float32([
+    [1, shx, abs_shift], 
+    [0, 1, 0]
+])
+```
+
+### 4. Aplicación Única
+Es crucial aplicar `cv.warpAffine` **una sola vez** con la matriz ajustada y el nuevo ancho (`original_width + abs_shift`).
+```python
+img_sheared = cv.warpAffine(img1, M_shear, (new_width, rows))
+```
+Si se aplicara primero el shear y luego la traslación en dos pasos, la imagen se cortaría en el primer paso, perdiendo información irrecuperable.
