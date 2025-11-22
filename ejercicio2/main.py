@@ -145,7 +145,7 @@ def parte_b1():
     M_rot[1, 2] += (nH / 2) - cY
     
     img_final = cv.warpAffine(img_sheared, M_rot, (nW, nH))
-    
+
     cv.imshow("img1 T3", img_final)
     cv.waitKey(0)
     cv.destroyAllWindows()
@@ -243,6 +243,15 @@ def parte_b():
 
 def parte_c():
     print("Parte C")
+    """
+    Sabiendo que la ROI es [(0,0),(10,0)] y [(0,20),(10,20)] y que la distancia final es 40 sabemos que la matriz de resize es (1/2)*I(3)
+    Luego sabemos que alpha es 60 asi que Theta es 30 por tanto:
+              [cos(-30), sin(-30), 0]
+    M_shear = [-sin(-30), cos(-30), 0]
+              [0, 0,       1]
+
+    luego queremos que el centro de este rectangulo este en el 100, 80
+    """
 
 
 def menu():
