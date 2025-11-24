@@ -78,7 +78,7 @@ def parte_a():
     cv.destroyAllWindows()
 
 
-def parte_b1():
+def parte_b11():
     """
     T1: Reescalar a un cuarto en ambos ejes la imagen
     T2: Inclinar (shear) -30 grados la imagen obtenida de T1
@@ -150,7 +150,7 @@ def parte_b1():
     cv.waitKey(0)
     cv.destroyAllWindows()
     
-def parte_b2():
+def parte_b12():
     # Se aplican todas las transformaciones de B1.1 de una sola vez conmutando matrices de transformacion
     img1 = cv.imread("zigzag.jpg")
     if img1 is None:
@@ -225,26 +225,11 @@ def parte_b2():
     cv.waitKey(0)
     cv.destroyAllWindows()
         
-    
-
-def parte_b():
-    #Menu parte B
-    print("Parte B")
-    print("1. B1.1")
-    print("2. B1.2")
-    print("3. Salir")
-    option = int(input("Introduce una opcion: "))
-    while option != 3:
-        if option == 1:
-            parte_b1()
-        elif option == 2:
-            parte_b2()
-        option = int(input("Introduce una opcion: "))
-
-def parte_c():
-    print("Parte C")
+def parte_b2():
     """
-    Sabiendo que la ROI es [(0,0),(10,0)] y [(0,20),(10,20)] y que la distancia final es 40 sabemos que la matriz de resize es (1/2)*I(3)
+    Sabiendo que la distancia final es 20 sabemos que la matriz de resize es (1/2)*I(3)
+    Luego lo que tenemos que averiguar es la posicion de los puntos de la roi, que seran el rectangulo que contiene a la ROI.
+    Ese rectangulo tenemos que girarlo y asi nos quedara solo la roi contenida en la imagen final.
     Luego sabemos que alpha es 60 asi que Theta es 30 por tanto:
               [cos(-30), sin(-30), 0]
     M_shear = [-sin(-30), cos(-30), 0]
@@ -252,7 +237,132 @@ def parte_c():
 
     luego queremos que el centro de este rectangulo este en el 100, 80
     """
+    img = cv.imread("zigzag.jpg")
+    if img is None:
+        print("Error: Image not found")
+        return
 
+    # 1. Resize (1/2)
+    # The comment says "matriz de resize es (1/2)*I(3)"
+    S = np.eye(3, dtype=np.float32)
+    S[0, 0] = 0.5
+    S[1, 1] = 0.5
+    
+    # 2. Rotation -30 degrees
+    # The comment shows a matrix with cos(-30), sin(-30).
+    angle = -30
+    theta = np.radians(angle)
+    
+    R = np.eye(3, dtype=np.float32)
+    R[0, 0] = np.cos(theta)
+    R[0, 1] = np.sin(theta)
+    R[1, 0] = -np.sin(theta)
+    R[1, 1] = np.cos(theta)
+    
+    # Combined Transformation T = R @ S
+    T = R @ S
+    
+    # 3. Center at 100, 80
+    # We assume "center of this rectangle" refers to the center of the image after resize and rotation.
+    h, w = img.shape[:2]
+    center_original = np.array([w / 2, h / 2, 1])
+    
+    # Apply T to center
+    center_transformed = T @ center_original
+    
+    # We want the new center to be (100, 80).
+    tx = 100 - center_transformed[0]
+    ty = 80 - center_transformed[1]
+    
+    # Add translation to T
+    T[0, 2] = tx
+    T[1, 2] = ty
+    
+    # Apply warpAffine
+    output_size = (w, h)
+    
+    img_transformed = cv.warpAffine(img, T[:2], output_size)
+    
+    cv.imshow("Parte C (B2)", img_transformed)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
+
+
+def parte_b():
+    #Menu parte B
+    print("Parte B")
+    print("1. B1.1")
+    print("2. B1.2")
+    print("3. B2")
+    print("4. Salir")
+    option = int(input("Introduce una opcion: "))
+    while option != 4:
+        if option == 1:
+            parte_b11()
+        elif option == 2:
+            parte_b12()
+        elif option == 3:
+            parte_b2()
+        option = int(input("Introduce una opcion: "))
+
+def parte_c1():
+    """
+    Deforme la imagen de la Figura 5 de manera que la mitad izquierda de la imagen quede
+    comprimida en un tercio de la imagen final y la mitad derecha se expanda para ocupar los dos
+    tercios restantes. Justifique qué operador considera que se debe utilizar para realizar esta
+    operación warpAffine o warpPerspective. ¿Esta transformación es no lineal? Justifique por qué
+    """
+
+    img1 = cv.imread("figura5.jpg")
+    if img1 is None:
+        print("Error: Image not found")
+        return
+    
+    h, w = img1.shape[:2]
+    
+    # Justificación:
+    # Se utiliza warpPerspective (homografía) porque la transformación requerida es no lineal en el espacio Euclídeo 
+    # (la relación de distancias cambia: la mitad izquierda se comprime más que la derecha). 
+    # Una transformación afín (warpAffine) preserva el paralelismo y las proporciones de segmentos colineales, 
+    # por lo que no puede comprimir una parte de un segmento más que otra.
+    #
+    # Matriz de homografía derivada para mapear x=0->0, x=w/2->w/3, x=w->w:
+    # x' = (0.5 * x) / (1 - (x / (2*w)))
+    # Esto corresponde a la matriz:
+    #     [0.5, 0, 0]
+    # H = [0,   1, 0]
+    #     [-1/(2w), 0, 1]
+    
+    H = np.array([
+        [0.5, 0, 0],
+        [0, 1, 0],
+        [-1.0/(2.0*w), 0, 1]
+    ], dtype=np.float32)
+    
+    # Aplicar la transformación
+    # Nota: Esta transformación introduce distorsión en el eje Y (efecto de perspectiva) 
+    # para poder satisfacer las restricciones en X con una sola homografía plana.
+    img_transformed = cv.warpPerspective(img1, H, (w, h))
+    
+    cv.imshow("Parte C1 - Deformacion", img_transformed)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
+
+def parte_c2():
+    return
+
+def parte_c():
+    print("Parte C")
+    print("1. C1")
+    print("2. C2")
+    print("3. Salir")
+    option = int(input("Introduce una opcion: "))
+    while option != 3:
+        if option == 1:
+            parte_c1()
+        elif option == 2:
+            parte_c2()
+        option = int(input("Introduce una opcion: "))
 
 def menu():
     print("""
