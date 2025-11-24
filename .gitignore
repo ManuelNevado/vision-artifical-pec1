@@ -221,3 +221,7 @@ __marimo__/
 # Data
 .data
 data
+
+# virtual enviroment
+venva
+.venva
