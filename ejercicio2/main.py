@@ -313,7 +313,7 @@ def parte_c1():
     operación warpAffine o warpPerspective. ¿Esta transformación es no lineal? Justifique por qué
     """
 
-    img1 = cv.imread("figura5.jpg")
+    img1 = cv.imread("zigzag.jpg")
     if img1 is None:
         print("Error: Image not found")
         return
@@ -339,17 +339,72 @@ def parte_c1():
         [-1.0/(2.0*w), 0, 1]
     ], dtype=np.float32)
     
-    # Aplicar la transformación
+    # Calcular las coordenadas de las esquinas transformadas para determinar el tamaño final
+    corners = np.array([
+        [0, 0, 1],
+        [w, 0, 1],
+        [w, h, 1],
+        [0, h, 1]
+    ]).T
+    
+    transformed_corners = H @ corners
+    transformed_corners /= transformed_corners[2, :]
+    
+    # Encontrar el máximo Y para ajustar el alto de la imagen
+    max_y = transformed_corners[1, :].max()
+    new_h = int(np.ceil(max_y))
+    
+    # Aplicar la transformación con el nuevo tamaño
     # Nota: Esta transformación introduce distorsión en el eje Y (efecto de perspectiva) 
     # para poder satisfacer las restricciones en X con una sola homografía plana.
-    img_transformed = cv.warpPerspective(img1, H, (w, h))
+    img_transformed = cv.warpPerspective(img1, H, (w, new_h))
     
     cv.imshow("Parte C1 - Deformacion", img_transformed)
     cv.waitKey(0)
     cv.destroyAllWindows()
 
 def parte_c2():
-    return
+    """
+    Hay que aplicar la siguiente transformacion a la imagen tableroAjedrez.png:
+     y' = y + 0.4*(x-0.5)**2 -0.1
+     x' = x
+    """
+    img = cv.imread("tableroAjedrez.png")
+    if img is None:
+        print("Error: Image 'tableroAjedrez.png' not found")
+        return
+
+    h, w = img.shape[:2]
+
+    # Create meshgrid for destination coordinates (x', y')
+    map_x_float, map_y_float = np.meshgrid(np.arange(w), np.arange(h))
+
+    # Normalize to [0, 1]
+    x_prime = map_x_float / (w - 1)
+    y_prime = map_y_float / (h - 1)
+
+    # Inverse mapping:
+    # x = x'
+    # y' = y + 0.4*(x-0.5)**2 - 0.1  =>  y = y' - (0.4*(x-0.5)**2 - 0.1)
+    # Since x = x', we can substitute x with x' in the y formula
+    
+    x_src_norm = x_prime
+    y_src_norm = y_prime - (0.4 * (x_prime - 0.5)**2 - 0.1)
+
+    # Denormalize back to pixel coordinates
+    map_x = x_src_norm * (w - 1)
+    map_y = y_src_norm * (h - 1)
+
+    # Convert to float32 for remap
+    map_x = map_x.astype(np.float32)
+    map_y = map_y.astype(np.float32)
+
+    # Apply remap
+    img_transformed = cv.remap(img, map_x, map_y, interpolation=cv.INTER_LINEAR)
+
+    cv.imshow("Parte C2 - Deformacion No Lineal", img_transformed)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
 
 def parte_c():
     print("Parte C")
