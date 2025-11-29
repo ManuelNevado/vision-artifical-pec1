@@ -43,3 +43,32 @@ Este script implementa una técnica de **Flujo Óptico Denso (Dense Optical Flow
 | **Robustez** | Alta para puntos específicos (gracias al back-tracking). | Proporciona una visión global pero puede tener ruido. |
 | **Información** | Trayectorias históricas (historia del movimiento). | Campo de velocidad instantáneo (movimiento actual). |
 | **Uso Ideal** | Seguimiento de objetos (tracking), SLAM. | Segmentación de movimiento, estructura desde movimiento. |
+
+## 4. Limitaciones de Lucas-Kanade en Regiones Suavizadas
+
+Una observación importante sobre la implementación en `lukas_kanade_track.py` es que **no detecta movimiento en regiones suavizadas o de color uniforme**. Esto se debe a dos razones fundamentales:
+
+1.  **Problema de la Apertura y Gradientes**: El algoritmo de Lucas-Kanade se basa en resolver un sistema de ecuaciones que depende de los gradientes espaciales de la imagen ($I_x, I_y$). En regiones planas o suaves, estos gradientes son cercanos a cero, lo que hace que el sistema sea matemáticamente irresoluble (matriz singular) o muy inestable. Sin bordes o texturas, es imposible determinar localmente si un píxel se ha movido.
+
+2.  **Selección Explícita de Características**: Para evitar cálculos erróneos en estas zonas problemáticas, el script utiliza `cv.goodFeaturesToTrack` (detector Shi-Tomasi). Este detector filtra explícitamente las regiones donde los valores propios del tensor de estructura son pequeños (es decir, regiones planas), seleccionando únicamente **esquinas fuertes** donde el movimiento puede ser rastreado con fiabilidad.
+
+## 5. Métodos de Visualización del Flujo Óptico
+
+En el contexto de los scripts analizados, se pueden identificar tres formas principales de representar visualmente la información del flujo óptico:
+
+1.  **Campo Vectorial (Grid de Vectores)**:
+    *   **Descripción**: Se dibuja una rejilla de líneas o flechas sobre la imagen original. Cada línea nace en un punto $ y termina en $.
+    *   **Interpretación**: La longitud de la línea indica la **velocidad** (magnitud del desplazamiento) y la orientación indica la **dirección** del movimiento.
+    *   **Implementación**: Ver función `draw_flow` en `optical_flow1.py`. Es útil para ver el flujo detallado en zonas específicas, aunque puede saturar la imagen si se dibujan todos los vectores (por eso se usa un `step` o paso).
+
+2.  **Mapa de Color (Codificación HSV)**:
+    *   **Descripción**: Se genera una imagen sintética donde el movimiento de cada píxel se codifica mediante color.
+    *   **Interpretación**:
+        *   **Matiz (Hue)**: Representa la **dirección** del movimiento (ej. rojo=derecha, azul=arriba).
+        *   **Valor/Saturación**: Representa la **magnitud** del movimiento (más brillante/intenso = mayor velocidad).
+    *   **Implementación**: Ver función `draw_hsv` en `optical_flow1.py`. Es excelente para visualizar el movimiento denso de forma global y continua, permitiendo identificar objetos en movimiento rápidamente.
+
+3.  **Trayectorias (Tracking)**:
+    *   **Descripción**: En lugar de mostrar el movimiento instantáneo, se dibuja el camino recorrido por puntos específicos a lo largo del tiempo.
+    *   **Interpretación**: Muestra la **historia** del movimiento. Las líneas conectan las posiciones pasadas con la actual.
+    *   **Implementación**: Ver clase `App` en `lukas_kanade_track.py`. Es ideal para el flujo óptico esparso, ya que permite visualizar el comportamiento dinámico de objetos concretos a través de múltiples frames.
